@@ -8,7 +8,6 @@ import json
 import locale
 import signal
 import sys
-from argparse import ArgumentParser, FileType, Namespace
 from collections import defaultdict
 from enum import IntEnum
 from io import TextIOBase
@@ -27,9 +26,9 @@ from typing import (
 )
 from urllib.parse import ParseResult, urlparse
 
-import argcomplete
 import black
 import toml
+import typer
 from pydantic import BaseModel, root_validator, validator
 
 from datamodel_code_generator import (
@@ -66,249 +65,6 @@ def sig_int_handler(_: int, __: Any) -> None:  # pragma: no cover
 signal.signal(signal.SIGINT, sig_int_handler)
 
 DEFAULT_ENCODING = locale.getpreferredencoding()
-
-arg_parser = ArgumentParser()
-arg_parser.add_argument(
-    '--input',
-    help='Input file/directory (default: stdin)',
-)
-arg_parser.add_argument(
-    '--url',
-    help='Input file URL. `--input` is ignored when `--url` is used',
-)
-
-arg_parser.add_argument(
-    '--http-headers',
-    nargs='+',
-    metavar='HTTP_HEADER',
-    help='Set headers in HTTP requests to the remote host. (example: "Authorization: Basic dXNlcjpwYXNz")',
-)
-
-arg_parser.add_argument(
-    '--http-ignore-tls',
-    help="Disable verification of the remote host's TLS certificate",
-    action='store_true',
-    default=False,
-)
-
-arg_parser.add_argument(
-    '--input-file-type',
-    help='Input file type (default: auto)',
-    choices=[i.value for i in InputFileType],
-)
-arg_parser.add_argument(
-    '--openapi-scopes',
-    help='Scopes of OpenAPI model generation (default: schemas)',
-    choices=[o.value for o in OpenAPIScope],
-    nargs='+',
-    default=[OpenAPIScope.Schemas.value],
-)
-arg_parser.add_argument('--output', help='Output file (default: stdout)')
-
-arg_parser.add_argument(
-    '--base-class',
-    help='Base Class (default: pydantic.BaseModel)',
-    type=str,
-)
-arg_parser.add_argument(
-    '--field-constraints',
-    help='Use field constraints and not con* annotations',
-    action='store_true',
-    default=None,
-)
-arg_parser.add_argument(
-    '--use-annotated',
-    help='Use typing.Annotated for Field(). Also, `--field-constraints` option will be enabled.',
-    action='store_true',
-    default=None,
-)
-arg_parser.add_argument(
-    '--use_non_positive_negative_number_constrained_types',
-    help='Use the Non{Positive,Negative}{FloatInt} types instead of the corresponding con* constrained types.',
-    action='store_true',
-    default=None,
-)
-arg_parser.add_argument(
-    '--field-extra-keys',
-    help='Add extra keys to field parameters',
-    type=str,
-    nargs='+',
-)
-arg_parser.add_argument(
-    '--field-include-all-keys',
-    help='Add all keys to field parameters',
-    action='store_true',
-    default=None,
-)
-arg_parser.add_argument(
-    '--snake-case-field',
-    help='Change camel-case field name to snake-case',
-    action='store_true',
-    default=None,
-)
-arg_parser.add_argument(
-    '--strip-default-none',
-    help='Strip default None on fields',
-    action='store_true',
-    default=None,
-)
-arg_parser.add_argument(
-    '--disable-appending-item-suffix',
-    help='Disable appending `Item` suffix to model name in an array',
-    action='store_true',
-    default=None,
-)
-arg_parser.add_argument(
-    '--allow-population-by-field-name',
-    help='Allow population by field name',
-    action='store_true',
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--enable-faux-immutability',
-    help='Enable faux immutability',
-    action='store_true',
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--use-default',
-    help='Use default value even if a field is required',
-    action='store_true',
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--force-optional',
-    help='Force optional for required fields',
-    action='store_true',
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--strict-nullable',
-    help='Treat default field as a non-nullable field (Only OpenAPI)',
-    action='store_true',
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--strict-types',
-    help='Use strict types',
-    choices=[t.value for t in StrictTypes],
-    nargs='+',
-)
-
-arg_parser.add_argument(
-    '--disable-timestamp',
-    help='Disable timestamp on file headers',
-    action='store_true',
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--use-standard-collections',
-    help='Use standard collections for type hinting (list, dict)',
-    action='store_true',
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--use-generic-container-types',
-    help='Use generic container types for type hinting (typing.Sequence, typing.Mapping). '
-    'If `--use-standard-collections` option is set, then import from collections.abc instead of typing',
-    action='store_true',
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--use-schema-description',
-    help='Use schema description to populate class docstring',
-    action='store_true',
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--reuse-model',
-    help='Re-use models on the field when a module has the model with the same content',
-    action='store_true',
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--enum-field-as-literal',
-    help='Parse enum field as literal. '
-    'all: all enum field type are Literal. '
-    'one: field type is Literal when an enum has only one possible value',
-    choices=[l.value for l in LiteralType],
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--set-default-enum-member',
-    help='Set enum members as default values for enum field',
-    action='store_true',
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--empty-enum-field-name',
-    help='Set field name when enum value is empty (default:  `_`)',
-    default=None,
-)
-
-
-arg_parser.add_argument(
-    '--class-name',
-    help='Set class name of root model',
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--use-title-as-name',
-    help='use titles as class names of models',
-    action='store_true',
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--custom-template-dir', help='Custom template directory', type=str
-)
-arg_parser.add_argument(
-    '--extra-template-data', help='Extra template data', type=FileType('rt')
-)
-arg_parser.add_argument('--aliases', help='Alias mapping file', type=FileType('rt'))
-arg_parser.add_argument(
-    '--target-python-version',
-    help='target python version (default: 3.7)',
-    choices=[v.value for v in PythonVersion],
-)
-
-arg_parser.add_argument(
-    '--wrap-string-literal',
-    help='Wrap string literal by using black `experimental-string-processing` option (require black 20.8b0 or later)',
-    action='store_true',
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--validation',
-    help='Enable validation (Only OpenAPI)',
-    action='store_true',
-    default=None,
-)
-
-arg_parser.add_argument(
-    '--encoding',
-    help=f'The encoding of input and output (default: {DEFAULT_ENCODING})',
-    default=DEFAULT_ENCODING,
-)
-
-arg_parser.add_argument(
-    '--debug', help='show debug message', action='store_true', default=None
-)
-arg_parser.add_argument('--version', help='show version', action='store_true')
 
 
 class Config(BaseModel):
@@ -380,86 +136,193 @@ class Config(BaseModel):
             values['field_constraints'] = True
         return values
 
-    input: Optional[Union[Path, str]]
-    input_file_type: InputFileType = InputFileType.Auto
-    output: Optional[Path]
-    debug: bool = False
-    target_python_version: PythonVersion = PythonVersion.PY_37
-    base_class: str = DEFAULT_BASE_CLASS
-    custom_template_dir: Optional[Path]
-    extra_template_data: Optional[TextIOBase]
-    validation: bool = False
-    field_constraints: bool = False
-    snake_case_field: bool = False
-    strip_default_none: bool = False
-    aliases: Optional[TextIOBase]
-    disable_timestamp: bool = False
-    allow_population_by_field_name: bool = False
-    use_default: bool = False
-    force_optional: bool = False
-    class_name: Optional[str] = None
-    use_standard_collections: bool = False
-    use_schema_description: bool = False
-    reuse_model: bool = False
-    encoding: str = 'utf-8'
-    enum_field_as_literal: Optional[LiteralType] = None
-    set_default_enum_member: bool = False
-    strict_nullable: bool = False
-    use_generic_container_types: bool = False
-    enable_faux_immutability: bool = False
-    url: Optional[ParseResult] = None
-    disable_appending_item_suffix: bool = False
-    strict_types: List[StrictTypes] = []
-    empty_enum_field_name: Optional[str] = None
-    field_extra_keys: Optional[Set[str]] = None
-    field_include_all_keys: bool = False
-    openapi_scopes: Optional[List[OpenAPIScope]] = None
-    wrap_string_literal: Optional[bool] = None
-    use_title_as_name: bool = False
-    http_headers: Optional[Sequence[Tuple[str, str]]] = None
-    http_ignore_tls: bool = False
-    use_annotated: bool = False
-    use_non_positive_negative_number_constrained_types: bool = False
 
-    def merge_args(self, args: Namespace) -> None:
-        set_args = {
-            f: getattr(args, f) for f in self.__fields__ if getattr(args, f) is not None
-        }
-        set_args = self._validate_use_annotated(set_args)
-        parsed_args = self.parse_obj(set_args)
-        for field_name in set_args:
-            setattr(self, field_name, getattr(parsed_args, field_name))
+root = black_find_project_root((Path().resolve(),))
+pyproject_path = root / "pyproject.toml"
+pyproject: Dict[str, Any]
+if pyproject_path.is_file():
+    pyproject = {
+        k.replace('-', '_'): v
+        for k, v in toml.load(str(pyproject_path))
+        .get('tool', {})
+        .get('datamodel-codegen', {})
+        .items()
+    }
+else:
+    pyproject = {}
 
 
-def main(args: Optional[Sequence[str]] = None) -> Exit:
+def main(
+    input: Union[Path, TextIOBase] = typer.Option(
+        pyproject.get("input", sys.stdin),
+        help="Input file/directory",
+    ),
+    url: Optional[ParseResult] = typer.Option(
+        pyproject.get("url", None),
+        help="Input file URL. `--input` is ignored when `--url` is used",
+    ),
+    http_headers: Optional[Sequence[Tuple[str, str]]] = typer.Option(
+        pyproject.get("http_headers", None),
+        help='Set headers in HTTP requests to the remote host. (example: "Authorization: Basic dXNlcjpwYXNz")',
+    ),
+    http_ignore_tls: bool = typer.Option(
+        pyproject.get("http_ignore_tls", False),
+        help="Disable verification of the remote host's TLS certificate",
+    ),
+    input_file_type: InputFileType = typer.Option(
+        pyproject.get("input_file_type", InputFileType.Auto),
+        help='Input file type',
+    ),
+    openapi_scopes: List[OpenAPIScope] = typer.Option(
+        pyproject.get("openapi_scopes", [OpenAPIScope.Schemas.value]),
+        help='Input file type (default: auto)',
+    ),
+    output: Union[Path, TextIOBase] = typer.Option(
+        pyproject.get("output", sys.stderr),
+        help='Output file',
+    ),
+    base_class: str = typer.Option(
+        pyproject.get("base_class", DEFAULT_BASE_CLASS),
+        help='Base Class',
+    ),
+    field_constraints: bool = typer.Option(
+        pyproject.get("field_constraints", False),
+        help='Use field constraints and not con* annotations',
+    ),
+    use_annotated: bool = typer.Option(
+        pyproject.get("use_annotated", False),
+        help='Use typing.Annotated for Field(). Also, `--field-constraints` option will be enabled.',
+    ),
+    use_non_positive_negative_number_constrained_types: bool = typer.Option(
+        pyproject.get("use_non_positive_negative_number_constrained_types", False),
+        help='Use the Non{Positive,Negative}{FloatInt} types instead of the corresponding con* constrained types.',
+    ),
+    field_extra_keys: List[str] = typer.Option(
+        pyproject.get("field_extra_keys", []),
+        help='Add extra keys to field parameters',
+    ),
+    field_include_all_keys: bool = typer.Option(
+        pyproject.get("field_include_all_keys", False),
+        help='Add all keys to field parameters',
+    ),
+    snake_case_field: bool = typer.Option(
+        pyproject.get("snake_case_field", False),
+        help='Change camel-case field name to snake-case',
+    ),
+    strip_default_none: bool = typer.Option(
+        pyproject.get("strip_default_none", False),
+        help='Strip default None on fields',
+    ),
+    disable_appending_item_suffix: bool = typer.Option(
+        pyproject.get("disable_appending_item_suffix", False),
+        help='Disable appending `Item` suffix to model name in an array',
+    ),
+    allow_population_by_field_name: bool = typer.Option(
+        pyproject.get("allow_population_by_field_name", False),
+        help='Allow population by field name',
+    ),
+    enable_faux_immutability: bool = typer.Option(
+        pyproject.get("enable_faux_immutability", False),
+        help='Enable faux immutability',
+    ),
+    use_default: bool = typer.Option(
+        pyproject.get("use_default", False),
+        help='Use default value even if a field is required',
+    ),
+    force_optional: bool = typer.Option(
+        pyproject.get("force_optional", False),
+        help='Force optional for required fields',
+    ),
+    strict_nullable: bool = typer.Option(
+        pyproject.get("strict_nullable", False),
+        help='Treat default field as a non-nullable field (Only OpenAPI)',
+    ),
+    strict_types: List[StrictTypes] = typer.Option(
+        pyproject.get("strict_types", []),
+        help='Use strict types',
+    ),
+    disable_timestamp: bool = typer.Option(
+        pyproject.get("disable_timestamp", False),
+        help='Disable timestamp on file headers',
+    ),
+    use_standard_collections: bool = typer.Option(
+        pyproject.get("use_standard_collections", False),
+        help='Use standard collections for type hinting (list, dict)',
+    ),
+    use_generic_container_types: bool = typer.Option(
+        pyproject.get("use_generic_container_types", False),
+        help='Use generic container types for type hinting (typing.Sequence, typing.Mapping). '
+        'If `--use-standard-collections` option is set, then import from collections.abc instead of typing',
+    ),
+    use_schema_description: bool = typer.Option(
+        pyproject.get("use_schema_description", False),
+        help='Use schema description to populate class docstring',
+    ),
+    reuse_model: bool = typer.Option(
+        pyproject.get("reuse_model", False),
+        help='Re-use models on the field when a module has the model with the same content',
+    ),
+    enum_field_as_literal: Optional[LiteralType] = typer.Option(
+        pyproject.get("enum_field_as_literal", None),
+        help='Parse enum field as literal. all: all enum field type are Literal. one: field type is Literal when an enum has only one possible value',
+    ),
+    set_default_enum_member: bool = typer.Option(
+        pyproject.get("set_default_enum_member", False),
+        help='Set enum members as default values for enum field',
+    ),
+    empty_enum_field_name: str = typer.Option(
+        pyproject.get("empty_enum_field_name", '_'),
+        help='Set field name when enum value is empty',
+    ),
+    class_name: Optional[str] = typer.Option(
+        pyproject.get("class_name", None),
+        help='Set class name of root model',
+    ),
+    use_title_as_name: bool = typer.Option(
+        pyproject.get("use_title_as_name", False),
+        help='use titles as class names of models',
+    ),
+    custom_template_dir: Optional[Path] = typer.Option(
+        pyproject.get("custom_template_dir", None),
+        help='Custom template directory',
+    ),
+    extra_template_data: Optional[TextIOBase] = typer.Option(
+        pyproject.get("extra_template_data", None),
+        help='Extra template data',
+    ),
+    aliases: Optional[TextIOBase] = typer.Option(
+        pyproject.get("aliases", None),
+        help='Alias mapping file',
+    ),
+    target_python_version: PythonVersion = typer.Option(
+        pyproject.get("target_python_version", PythonVersion.PY_37),
+        help='target python version (default: 3.7)',
+    ),
+    wrap_string_literal: Optional[bool] = typer.Option(
+        pyproject.get("wrap_string_literal", False),
+        help='Wrap string literal by using black `experimental-string-processing` option (require black 20.8b0 or later)',
+    ),
+    validation: bool = typer.Option(
+        pyproject.get("validation", False),
+        help='Enable validation (Only OpenAPI)',
+    ),
+    encoding: str = typer.Option(
+        pyproject.get("encoding", DEFAULT_ENCODING),
+        help='The encoding of input and output',
+    ),
+    debug: bool = typer.Option(
+        pyproject.get("debug", False),
+        help='show debug message',
+    ),
+    version: bool = typer.Option(pyproject.get("version", False), help='show version'),
+) -> Exit:
     """Main function."""
 
-    # add cli completion support
-    argcomplete.autocomplete(arg_parser)
-
-    if args is None:
-        args = sys.argv[1:]
-
-    namespace: Namespace = arg_parser.parse_args(args)
-
-    if namespace.version:
+    if version:
         from datamodel_code_generator.version import version
 
         print(version)
         exit(0)
-
-    root = black_find_project_root((Path().resolve(),))
-    pyproject_toml_path = root / "pyproject.toml"
-    if pyproject_toml_path.is_file():
-        pyproject_toml: Dict[str, Any] = {
-            k.replace('-', '_'): v
-            for k, v in toml.load(str(pyproject_toml_path))
-            .get('tool', {})
-            .get('datamodel-codegen', {})
-            .items()
-        }
-    else:
-        pyproject_toml = {}
 
     try:
         config = Config.parse_obj(pyproject_toml)
