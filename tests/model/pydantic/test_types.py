@@ -1,5 +1,6 @@
 import pytest
 
+from datamodel_code_generator.custom_types import DataType, Types
 from datamodel_code_generator.imports import Import
 from datamodel_code_generator.model.pydantic.imports import (
     IMPORT_CONDECIMAL,
@@ -16,7 +17,6 @@ from datamodel_code_generator.model.pydantic.imports import (
     IMPORT_POSITIVE_INT,
 )
 from datamodel_code_generator.model.pydantic.types import DataTypeManager
-from datamodel_code_generator.types import DataType, Types
 
 
 @pytest.mark.parametrize(

@@ -24,6 +24,7 @@ from urllib.parse import ParseResult
 from pydantic import BaseModel
 
 from datamodel_code_generator import Protocol, runtime_checkable
+from datamodel_code_generator.custom_types import DataType, DataTypeManager, StrictTypes
 from datamodel_code_generator.format import CodeFormatter, PythonVersion
 from datamodel_code_generator.imports import IMPORT_ANNOTATIONS, Import, Imports
 from datamodel_code_generator.model import pydantic as pydantic_model
@@ -36,7 +37,6 @@ from datamodel_code_generator.model.base import (
 from datamodel_code_generator.model.enumerate import Enum
 from datamodel_code_generator.parser import DefaultPutDict, LiteralType
 from datamodel_code_generator.reference import ModelResolver, Reference
-from datamodel_code_generator.types import DataType, DataTypeManager, StrictTypes
 
 escape_characters = str.maketrans(
     {

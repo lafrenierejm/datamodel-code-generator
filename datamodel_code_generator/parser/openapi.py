@@ -30,6 +30,7 @@ from datamodel_code_generator import (
     load_yaml,
     snooper_to_methods,
 )
+from datamodel_code_generator.custom_types import DataType, DataTypeManager, StrictTypes
 from datamodel_code_generator.model import DataModel, DataModelFieldBase
 from datamodel_code_generator.model import pydantic as pydantic_model
 from datamodel_code_generator.parser.jsonschema import (
@@ -39,7 +40,6 @@ from datamodel_code_generator.parser.jsonschema import (
     get_special_path,
 )
 from datamodel_code_generator.reference import snake_to_upper_camel
-from datamodel_code_generator.types import DataType, DataTypeManager, StrictTypes
 
 RE_APPLICATION_JSON_PATTERN: Pattern[str] = re.compile(r'^application/.*json$')
 

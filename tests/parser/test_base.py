@@ -3,11 +3,11 @@ from typing import Dict, List, Tuple
 
 import pytest
 
+from datamodel_code_generator.custom_types import DataType
 from datamodel_code_generator.model import DataModel, DataModelFieldBase
 from datamodel_code_generator.model.pydantic import BaseModel, DataModelField
 from datamodel_code_generator.parser.base import Parser, relative, sort_data_models
 from datamodel_code_generator.reference import Reference, snake_to_upper_camel
-from datamodel_code_generator.types import DataType
 
 
 class A(DataModel):

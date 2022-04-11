@@ -3,6 +3,7 @@ from typing import Any, ClassVar, DefaultDict, Dict, List, Optional, Set, Tuple
 
 from pydantic import Field
 
+from datamodel_code_generator.custom_types import chain_as_tuple
 from datamodel_code_generator.imports import Import
 from datamodel_code_generator.model import (
     ConstraintsBase,
@@ -11,7 +12,6 @@ from datamodel_code_generator.model import (
 )
 from datamodel_code_generator.model.pydantic.imports import IMPORT_EXTRA, IMPORT_FIELD
 from datamodel_code_generator.reference import Reference
-from datamodel_code_generator.types import chain_as_tuple
 
 
 class Constraints(ConstraintsBase):

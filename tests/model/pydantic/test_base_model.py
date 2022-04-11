@@ -1,9 +1,9 @@
 import pytest
 
+from datamodel_code_generator.custom_types import DataType, Types
 from datamodel_code_generator.model.pydantic import DataTypeManager
 from datamodel_code_generator.model.pydantic.base_model import BaseModel, DataModelField
 from datamodel_code_generator.reference import Reference
-from datamodel_code_generator.types import DataType, Types
 
 
 def test_base_model():

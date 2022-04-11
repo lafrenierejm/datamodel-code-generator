@@ -4,13 +4,13 @@ from typing import Any
 
 import pytest
 
+from datamodel_code_generator.custom_types import DataType, Types
 from datamodel_code_generator.model.base import (
     DataModel,
     DataModelFieldBase,
     TemplateBase,
 )
 from datamodel_code_generator.reference import Reference
-from datamodel_code_generator.types import DataType, Types
 
 
 class A(TemplateBase):

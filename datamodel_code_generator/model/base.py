@@ -21,9 +21,9 @@ from jinja2 import Environment, FileSystemLoader, Template
 from pydantic import BaseModel
 
 from datamodel_code_generator import cached_property
+from datamodel_code_generator.custom_types import DataType, chain_as_tuple
 from datamodel_code_generator.imports import IMPORT_ANNOTATED, IMPORT_OPTIONAL, Import
 from datamodel_code_generator.reference import Reference, _BaseModel
-from datamodel_code_generator.types import DataType, chain_as_tuple
 
 TEMPLATE_DIR: Path = Path(__file__).parents[0] / 'template'
 

@@ -1,8 +1,8 @@
+from datamodel_code_generator.custom_types import DataType, Types
 from datamodel_code_generator.model import DataModelFieldBase
 from datamodel_code_generator.model.pydantic import DataTypeManager
 from datamodel_code_generator.model.pydantic.custom_root_type import CustomRootType
 from datamodel_code_generator.reference import Reference
-from datamodel_code_generator.types import DataType, Types
 
 
 def test_custom_root_type():

@@ -6,6 +6,7 @@ from unittest.mock import call
 import pytest
 import yaml
 
+from datamodel_code_generator.custom_types import DataType
 from datamodel_code_generator.imports import IMPORT_OPTIONAL, Import
 from datamodel_code_generator.model import DataModelFieldBase
 from datamodel_code_generator.parser.base import dump_templates
@@ -14,7 +15,6 @@ from datamodel_code_generator.parser.jsonschema import (
     JsonSchemaParser,
     get_model_by_path,
 )
-from datamodel_code_generator.types import DataType
 
 DATA_PATH: Path = Path(__file__).parents[1] / 'data' / 'jsonschema'
 

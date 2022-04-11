@@ -64,11 +64,11 @@ else:
                 return value
 
 
+from datamodel_code_generator.custom_types import StrictTypes
 from datamodel_code_generator.format import PythonVersion
 from datamodel_code_generator.model.pydantic import dump_resolve_reference_action
 from datamodel_code_generator.parser import DefaultPutDict, LiteralType
 from datamodel_code_generator.parser.base import Parser
-from datamodel_code_generator.types import StrictTypes
 
 T = TypeVar('T')
 

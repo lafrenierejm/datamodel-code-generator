@@ -31,6 +31,12 @@ from datamodel_code_generator import (
     load_yaml_from_path,
     snooper_to_methods,
 )
+from datamodel_code_generator.custom_types import (
+    DataType,
+    DataTypeManager,
+    StrictTypes,
+    Types,
+)
 from datamodel_code_generator.format import PythonVersion
 from datamodel_code_generator.model import DataModel, DataModelFieldBase
 from datamodel_code_generator.model import pydantic as pydantic_model
@@ -43,7 +49,6 @@ from datamodel_code_generator.parser.base import (
     title_to_class_name,
 )
 from datamodel_code_generator.reference import ModelType, Reference, is_url
-from datamodel_code_generator.types import DataType, DataTypeManager, StrictTypes, Types
 
 
 def get_model_by_path(schema: Dict[str, Any], keys: List[str]) -> Dict[str, Any]:
