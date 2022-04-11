@@ -35,7 +35,7 @@ from datamodel_code_generator.format import PythonVersion
 from datamodel_code_generator.model import DataModel, DataModelFieldBase
 from datamodel_code_generator.model import pydantic as pydantic_model
 from datamodel_code_generator.model.base import get_module_name
-from datamodel_code_generator.model.enum import Enum
+from datamodel_code_generator.model.enumerate import Enum
 from datamodel_code_generator.parser import DefaultPutDict, LiteralType
 from datamodel_code_generator.parser.base import (
     Parser,
