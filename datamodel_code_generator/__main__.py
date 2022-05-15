@@ -6,6 +6,7 @@ Main function.
 
 import json
 import locale
+import logging
 import signal
 import sys
 from collections import defaultdict
@@ -53,6 +54,8 @@ signal.signal(signal.SIGINT, sig_int_handler)
 
 DEFAULT_ENCODING = locale.getpreferredencoding()
 
+__LOGGER__ = logging.getLogger("datamodel_code_generator")
+
 
 root = black_find_project_root((Path().resolve(),))
 pyproject_path = root / "pyproject.toml"
@@ -69,6 +72,10 @@ else:
     pyproject = {}
 
 
+app = typer.Typer()
+
+
+@app.command()
 def main(
     input: Path = typer.Option(
         pyproject.get("input", None),
@@ -92,7 +99,7 @@ def main(
         help="Disable verification of the remote host's TLS certificate",
     ),
     input_file_type: InputFileType = typer.Option(
-        pyproject.get("input_file_type", InputFileType.Auto),
+        pyproject.get("input_file_type", InputFileType.Auto.value),
         help='Input file type',
     ),
     openapi_scopes: List[OpenAPIScope] = typer.Option(
@@ -102,8 +109,9 @@ def main(
     output: Path = typer.Option(
         pyproject.get("output"),
         file_okay=True,
-        dir_okay=False,
+        dir_okay=True,
         resolve_path=True,
+        writable=True,
         help='Output file',
     ),
     base_class: str = typer.Option(
@@ -276,7 +284,7 @@ def main(
             raise Error(f'Invalid http header: {each_item!r}')
 
     http_headers_parsed: Optional[List[Tuple[str, str]]] = (
-        [parse_http_header(http_headers)] if http_headers is not None else None
+        [parse_http_header(header) for header in http_headers] if http_headers else None
     )
 
     # Validate `use_generic_container_types`
@@ -365,19 +373,17 @@ def main(
             use_annotated=use_annotated,
             use_non_positive_negative_number_constrained_types=use_non_positive_negative_number_constrained_types,
         )
-        return Exit.OK
-    except InvalidClassNameError as e:
-        print(f'{e} You have to set `--class-name` option', file=sys.stderr)
-        return Exit.ERROR
-    except Error as e:
-        print(str(e), file=sys.stderr)
-        return Exit.ERROR
-    except Exception:
-        import traceback
-
-        print(traceback.format_exc(), file=sys.stderr)
-        return Exit.ERROR
+    except Exception as e:
+        __LOGGER__.exception("%s", e)
+        if isinstance (e, InvalidClassNameError):
+            raise Exception(f'{e} You have to set `--class-name` option') from e
+        raise
 
 
 if __name__ == '__main__':
-    sys.exit(typer.run(main))
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.DEBUG)
+    __LOGGER__.setLevel(logging.INFO)
+    __LOGGER__.addHandler(handler)
+
+    app()

@@ -9,9 +9,10 @@ import pydantic
 import pytest
 from _pytest.capture import CaptureFixture
 from freezegun import freeze_time
+from typer.testing import CliRunner
 
 from datamodel_code_generator import InputFileType, chdir, generate
-from datamodel_code_generator.__main__ import Exit, main
+from datamodel_code_generator.__main__ import Exit, app
 
 try:
     from pytest import TempdirFactory
@@ -29,27 +30,27 @@ EXPECTED_MAIN_PATH = DATA_PATH / 'expected' / 'main'
 
 TIMESTAMP = '1985-10-26T01:21:00-07:00'
 
+runner = CliRunner()
+
 
 @freeze_time('2019-07-26')
 def test_main():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
-                str(OPEN_API_DATA_PATH / 'api.yaml'),
+                OPEN_API_DATA_PATH / 'api.yaml',
                 '--output',
                 str(output_file),
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main' / 'output.py').read_text()
         )
-
-    with pytest.raises(SystemExit):
-        main()
 
 
 @freeze_time('2019-07-26')
@@ -57,7 +58,8 @@ def test_main_base_class():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
         shutil.copy(DATA_PATH / 'pyproject.toml', Path(output_dir) / 'pyproject.toml')
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api.yaml'),
@@ -65,23 +67,21 @@ def test_main_base_class():
                 str(output_file),
                 '--base-class',
                 'custom_module.Base',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_base_class' / 'output.py').read_text()
         )
-
-    with pytest.raises(SystemExit):
-        main()
 
 
 @freeze_time('2019-07-26')
 def test_target_python_version():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api.yaml'),
@@ -89,23 +89,21 @@ def test_target_python_version():
                 str(output_file),
                 '--target-python-version',
                 '3.6',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'target_python_version' / 'output.py').read_text()
         )
-
-    with pytest.raises(SystemExit):
-        main()
 
 
 @freeze_time('2019-07-26')
 def test_main_autodetect():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'person.json'),
@@ -113,16 +111,13 @@ def test_main_autodetect():
                 str(output_file),
                 '--input-file-type',
                 'auto',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_autodetect' / 'output.py').read_text()
         )
-
-    with pytest.raises(SystemExit):
-        main()
 
 
 @freeze_time('2019-07-26')
@@ -133,7 +128,8 @@ def test_main_autodetect_failed():
 
         input_file.write_text(':')
 
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(input_file),
@@ -141,35 +137,35 @@ def test_main_autodetect_failed():
                 str(output_file),
                 '--input-file-type',
                 'auto',
-            ]
+            ],
         )
-        assert return_code == Exit.ERROR
-
-    with pytest.raises(SystemExit):
-        main()
+        # assert not result.stderr
+        assert not result.stdout
+        assert result.exit_code == Exit.ERROR
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
-            [
-                '--input',
-                str(JSON_SCHEMA_DATA_PATH / 'person.json'),
-                '--output',
-                str(output_file),
-                '--input-file-type',
-                'jsonschema',
-            ]
+        assert (
+            runner.invoke(
+                app,
+                [
+                    '--input',
+                    str(JSON_SCHEMA_DATA_PATH / 'person.json'),
+                    '--output',
+                    str(output_file),
+                    '--input-file-type',
+                    'jsonschema',
+                ],
+            ).exit_code
+            == 0
         )
-        assert return_code == Exit.OK
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_jsonschema' / 'output.py').read_text()
         )
-    with pytest.raises(SystemExit):
-        main()
 
 
 @freeze_time('2019-07-26')
@@ -181,7 +177,8 @@ def test_main_jsonschema_nested_deep():
             Path(output_dir) / 'empty_parent/nested/deep.py'
         )
 
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'nested_person.json'),
@@ -189,15 +186,16 @@ def test_main_jsonschema_nested_deep():
                 str(output_dir),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.stdout == ""
         assert (
             output_init_file.read_text()
             == (
                 EXPECTED_MAIN_PATH / 'main_jsonschema_nested_deep' / '__init__.py'
             ).read_text()
         )
+        assert result.exit_code == 0
 
         assert (
             output_nested_file.read_text()
@@ -218,15 +216,14 @@ def test_main_jsonschema_nested_deep():
                 / 'deep.py'
             ).read_text()
         )
-    with pytest.raises(SystemExit):
-        main()
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_external_files():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'external_parent_root.json'),
@@ -234,24 +231,22 @@ def test_main_jsonschema_external_files():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
-        )
-        assert return_code == Exit.OK
+            ],
+        ).exit_code == 0
         assert (
             output_file.read_text()
             == (
                 EXPECTED_MAIN_PATH / 'main_jsonschema_external_files' / 'output.py'
             ).read_text()
         )
-    with pytest.raises(SystemExit):
-        main()
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_multiple_files():
     with TemporaryDirectory() as output_dir:
         output_path: Path = Path(output_dir)
-        return_code: Exit = main(
+        runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'multiple_files'),
@@ -259,9 +254,8 @@ def test_main_jsonschema_multiple_files():
                 str(output_path),
                 '--input-file-type',
                 'jsonschema',
-            ]
-        )
-        assert return_code == Exit.OK
+            ],
+        ).exit_code == 0
         main_modular_dir = EXPECTED_MAIN_PATH / 'multiple_files'
         for path in main_modular_dir.rglob('*.py'):
             result = output_path.joinpath(
@@ -269,63 +263,63 @@ def test_main_jsonschema_multiple_files():
             ).read_text()
             assert result == path.read_text()
 
-    with pytest.raises(SystemExit):
-        main()
-
 
 @freeze_time('2019-07-26')
 def test_main_json():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
-            [
-                '--input',
-                str(JSON_DATA_PATH / 'pet.json'),
-                '--output',
-                str(output_file),
-                '--input-file-type',
-                'json',
-            ]
+        assert (
+            runner.invoke(
+                app,
+                [
+                    '--input',
+                    str(JSON_DATA_PATH / 'pet.json'),
+                    '--output',
+                    str(output_file),
+                    '--input-file-type',
+                    'json',
+                ],
+            ).exit_code
+            == 0
         )
-        assert return_code == Exit.OK
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_json' / 'output.py').read_text()
         )
-    with pytest.raises(SystemExit):
-        main()
 
 
 @freeze_time('2019-07-26')
 def test_space_and_special_characters_json():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
-            [
-                '--input',
-                str(JSON_DATA_PATH / 'space_and_special_characters.json'),
-                '--output',
-                str(output_file),
-                '--input-file-type',
-                'json',
-            ]
+        assert (
+            runner.invoke(
+                app,
+                [
+                    '--input',
+                    str(JSON_DATA_PATH / 'space_and_special_characters.json'),
+                    '--output',
+                    str(output_file),
+                    '--input-file-type',
+                    'json',
+                ],
+            ).exit_code
+            == 0
         )
-        assert return_code == Exit.OK
         assert (
             output_file.read_text()
             == (
                 EXPECTED_MAIN_PATH / 'space_and_special_characters' / 'output.py'
             ).read_text()
         )
-    with pytest.raises(SystemExit):
-        main()
 
 
 @freeze_time('2019-07-26')
 def test_main_json_failed():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_DATA_PATH / 'broken.json'),
@@ -333,18 +327,17 @@ def test_main_json_failed():
                 str(output_file),
                 '--input-file-type',
                 'json',
-            ]
+            ],
         )
-        assert return_code == Exit.ERROR
-    with pytest.raises(SystemExit):
-        main()
+        assert result.exit_code == 1
 
 
 @freeze_time('2019-07-26')
 def test_main_json_arrary_include_null():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_DATA_PATH / 'array_include_null.json'),
@@ -352,24 +345,23 @@ def test_main_json_arrary_include_null():
                 str(output_file),
                 '--input-file-type',
                 'json',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
                 EXPECTED_MAIN_PATH / 'main_json_array_include_null' / 'output.py'
             ).read_text()
         )
-    with pytest.raises(SystemExit):
-        main()
 
 
 @freeze_time('2019-07-26')
 def test_main_null_and_array():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'null_and_array.json'),
@@ -377,22 +369,21 @@ def test_main_null_and_array():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_null_and_array' / 'output.py').read_text()
         )
-    with pytest.raises(SystemExit):
-        main()
 
 
 @freeze_time('2019-07-26')
 def test_main_yaml():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(YAML_DATA_PATH / 'pet.yaml'),
@@ -400,15 +391,13 @@ def test_main_yaml():
                 str(output_file),
                 '--input-file-type',
                 'yaml',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_yaml' / 'output.py').read_text()
         )
-    with pytest.raises(SystemExit):
-        main()
 
 
 def test_main_modular(tmpdir_factory: TempdirFactory) -> None:
@@ -420,7 +409,9 @@ def test_main_modular(tmpdir_factory: TempdirFactory) -> None:
     output_path = output_directory / 'model'
 
     with freeze_time(TIMESTAMP):
-        main(['--input', str(input_filename), '--output', str(output_path)])
+        runner.invoke(
+            app, ['--input', str(input_filename), '--output', str(output_path)]
+        )
     main_modular_dir = EXPECTED_MAIN_PATH / 'main_modular'
     for path in main_modular_dir.rglob('*.py'):
         result = output_path.joinpath(path.relative_to(main_modular_dir)).read_text()
@@ -436,14 +427,15 @@ def test_main_modular_reuse_model(tmpdir_factory: TempdirFactory) -> None:
     output_path = output_directory / 'model'
 
     with freeze_time(TIMESTAMP):
-        main(
+        runner.invoke(
+            app,
             [
                 '--input',
                 str(input_filename),
                 '--output',
                 str(output_path),
                 '--reuse-model',
-            ]
+            ],
         )
     main_modular_dir = EXPECTED_MAIN_PATH / 'main_modular_reuse_model'
     for path in main_modular_dir.rglob('*.py'):
@@ -456,7 +448,10 @@ def test_main_modular_no_file() -> None:
 
     input_filename = OPEN_API_DATA_PATH / 'modular.yaml'
 
-    assert main(['--input', str(input_filename)]) == Exit.ERROR
+    result = runner.invoke(app, ['--input', str(input_filename)])
+    assert result.exit_code == 1
+    assert not result.stdout
+    # assert result.stderr
 
 
 def test_main_modular_filename(tmpdir_factory: TempdirFactory) -> None:
@@ -467,10 +462,10 @@ def test_main_modular_filename(tmpdir_factory: TempdirFactory) -> None:
     input_filename = OPEN_API_DATA_PATH / 'modular.yaml'
     output_filename = output_directory / 'model.py'
 
-    assert (
-        main(['--input', str(input_filename), '--output', str(output_filename)])
-        == Exit.ERROR
+    result = runner.invoke(
+        app, ['--input', str(input_filename), '--output', str(output_filename)]
     )
+    assert result.exit_code == 1
 
 
 def test_main_no_file(capsys: CaptureFixture) -> None:
@@ -479,13 +474,10 @@ def test_main_no_file(capsys: CaptureFixture) -> None:
     input_filename = OPEN_API_DATA_PATH / 'api.yaml'
 
     with freeze_time(TIMESTAMP):
-        main(['--input', str(input_filename)])
+        result = runner.invoke(app, ['--input', str(input_filename)])
 
-    captured = capsys.readouterr()
-    assert (
-        captured.out == (EXPECTED_MAIN_PATH / 'main_no_file' / 'output.py').read_text()
-    )
-    assert not captured.err
+    assert result.exit_code == 0
+    assert result.stdout == (EXPECTED_MAIN_PATH / 'main_no_file' / 'output.py').read_text()
 
 
 def test_main_custom_template_dir(capsys: CaptureFixture) -> None:
@@ -496,7 +488,8 @@ def test_main_custom_template_dir(capsys: CaptureFixture) -> None:
     extra_template_data = OPEN_API_DATA_PATH / 'extra_data.json'
 
     with freeze_time(TIMESTAMP):
-        main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(input_filename),
@@ -504,15 +497,14 @@ def test_main_custom_template_dir(capsys: CaptureFixture) -> None:
                 str(custom_template_dir),
                 '--extra-template-data',
                 str(extra_template_data),
-            ]
+            ],
         )
 
-    captured = capsys.readouterr()
+    assert result.exit_code == 0
     assert (
-        captured.out
+        result.stdout
         == (EXPECTED_MAIN_PATH / 'main_custom_template_dir' / 'output.py').read_text()
     )
-    assert not captured.err
 
 
 @freeze_time('2019-07-26')
@@ -542,14 +534,16 @@ def test_pyproject():
             )
             (output_dir / 'pyproject.toml').write_text(pyproject_toml)
 
-            return_code: Exit = main([])
-            assert return_code == Exit.OK
+            result = runner.invoke(app, catch_exceptions=True)
+            assert result.exit_code == 1
             assert (
                 output_file.read_text()
                 == (EXPECTED_MAIN_PATH / 'pyproject' / 'output.py').read_text()
             )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -558,15 +552,16 @@ def test_pyproject_not_found():
         output_dir = Path(output_dir)
         with chdir(output_dir):
             output_file: Path = output_dir / 'output.py'
-            return_code: Exit = main(
+            result = runner.invoke(
+                app,
                 [
                     '--input',
                     str(OPEN_API_DATA_PATH / 'api.yaml'),
                     '--output',
                     str(output_file),
-                ]
+                ],
             )
-            assert return_code == Exit.OK
+            assert result.exit_code == 0
             assert (
                 output_file.read_text()
                 == (
@@ -581,13 +576,14 @@ def test_stdin(monkeypatch):
         output_dir = Path(output_dir)
         output_file: Path = output_dir / 'output.py'
         monkeypatch.setattr('sys.stdin', (OPEN_API_DATA_PATH / 'api.yaml').open())
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--output',
                 str(output_file),
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'stdin' / 'output.py').read_text()
@@ -598,23 +594,26 @@ def test_stdin(monkeypatch):
 def test_validation():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api.yaml'),
                 '--output',
                 str(output_file),
                 '--validation',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'validation' / 'output.py').read_text()
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -622,7 +621,8 @@ def test_validation_failed():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
         assert (
-            main(
+            runner.invoke(
+                app,
                 [
                     '--input',
                     str(OPEN_API_DATA_PATH / 'invalid.yaml'),
@@ -631,7 +631,7 @@ def test_validation_failed():
                     '--input-file-type',
                     'openapi',
                     '--validation',
-                ]
+                ],
             )
             == Exit.ERROR
         )
@@ -641,16 +641,17 @@ def test_validation_failed():
 def test_main_with_field_constraints():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api_constrained.yaml'),
                 '--output',
                 str(output_file),
                 '--field-constraints',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -659,22 +660,25 @@ def test_main_with_field_constraints():
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_without_field_constraints():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api_constrained.yaml'),
                 '--output',
                 str(output_file),
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -683,14 +687,17 @@ def test_main_without_field_constraints():
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_with_aliases():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api.yaml'),
@@ -698,22 +705,25 @@ def test_main_with_aliases():
                 str(OPEN_API_DATA_PATH / 'aliases.json'),
                 '--output',
                 str(output_file),
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_with_aliases' / 'output.py').read_text()
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 def test_main_with_bad_aliases():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api.yaml'),
@@ -721,18 +731,21 @@ def test_main_with_bad_aliases():
                 str(OPEN_API_DATA_PATH / 'not.json'),
                 '--output',
                 str(output_file),
-            ]
+            ],
         )
-        assert return_code == Exit.ERROR
+        assert result == Exit.ERROR
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 def test_main_with_more_bad_aliases():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api.yaml'),
@@ -740,18 +753,21 @@ def test_main_with_more_bad_aliases():
                 str(OPEN_API_DATA_PATH / 'list.json'),
                 '--output',
                 str(output_file),
-            ]
+            ],
         )
-        assert return_code == Exit.ERROR
+        assert result == Exit.ERROR
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 def test_main_with_bad_extra_data():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api.yaml'),
@@ -759,28 +775,31 @@ def test_main_with_bad_extra_data():
                 str(OPEN_API_DATA_PATH / 'not.json'),
                 '--output',
                 str(output_file),
-            ]
+            ],
         )
-        assert return_code == Exit.ERROR
+        assert result == Exit.ERROR
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_with_snake_case_field():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api.yaml'),
                 '--output',
                 str(output_file),
                 '--snake-case-field',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -789,23 +808,26 @@ def test_main_with_snake_case_field():
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_with_strip_default_none():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api.yaml'),
                 '--output',
                 str(output_file),
                 '--strip-default-none',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -814,45 +836,51 @@ def test_main_with_strip_default_none():
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 def test_disable_timestamp():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api.yaml'),
                 '--output',
                 str(output_file),
                 '--disable-timestamp',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'disable_timestamp' / 'output.py').read_text()
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_allow_population_by_field_name():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api.yaml'),
                 '--output',
                 str(output_file),
                 '--allow-population-by-field-name',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -861,23 +889,26 @@ def test_allow_population_by_field_name():
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_enable_faux_immutability():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api.yaml'),
                 '--output',
                 str(output_file),
                 '--enable-faux-immutability',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -886,113 +917,128 @@ def test_enable_faux_immutability():
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_use_default():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api.yaml'),
                 '--output',
                 str(output_file),
                 '--use-default',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'use_default' / 'output.py').read_text()
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_force_optional():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api.yaml'),
                 '--output',
                 str(output_file),
                 '--force-optional',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'force_optional' / 'output.py').read_text()
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_with_exclusive():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'exclusive.yaml'),
                 '--output',
                 str(output_file),
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_with_exclusive' / 'output.py').read_text()
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_subclass_enum():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'subclass_enum.json'),
                 '--output',
                 str(output_file),
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_subclass_enum' / 'output.py').read_text()
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_complicated_enum_default_member():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'complicated_enum.json'),
                 '--output',
                 str(output_file),
                 '--set-default-enum-member',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1003,14 +1049,17 @@ def test_main_complicated_enum_default_member():
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_json_reuse_enum_default_member():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'duplicate_enum.json'),
@@ -1020,9 +1069,9 @@ def test_main_json_reuse_enum_default_member():
                 'jsonschema',
                 '--reuse-model',
                 '--set-default-enum-member',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1030,14 +1079,17 @@ def test_main_json_reuse_enum_default_member():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_invalid_model_name_failed(capsys):
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'invalid_model_name.json'),
@@ -1047,10 +1099,10 @@ def test_main_invalid_model_name_failed(capsys):
                 'jsonschema',
                 '--class-name',
                 'with',
-            ]
+            ],
         )
         captured = capsys.readouterr()
-        assert return_code == Exit.ERROR
+        assert result == Exit.ERROR
         assert (
             captured.err
             == 'title=\'with\' is invalid class name. You have to set `--class-name` option\n'
@@ -1061,7 +1113,8 @@ def test_main_invalid_model_name_failed(capsys):
 def test_main_invalid_model_name_converted(capsys):
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'invalid_model_name.json'),
@@ -1069,10 +1122,10 @@ def test_main_invalid_model_name_converted(capsys):
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
         captured = capsys.readouterr()
-        assert return_code == Exit.ERROR
+        assert result == Exit.ERROR
         assert (
             captured.err
             == 'title=\'1Xyz\' is invalid class name. You have to set `--class-name` option\n'
@@ -1083,7 +1136,8 @@ def test_main_invalid_model_name_converted(capsys):
 def test_main_invalid_model_name():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'invalid_model_name.json'),
@@ -1093,9 +1147,9 @@ def test_main_invalid_model_name():
                 'jsonschema',
                 '--class-name',
                 'ValidModelName',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1103,7 +1157,9 @@ def test_main_invalid_model_name():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -1115,7 +1171,8 @@ def test_main_root_id_jsonschema_with_local_file(mocker):
     httpx_get_mock = mocker.patch('httpx.get', side_effect=[person_response])
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'root_id.json'),
@@ -1123,16 +1180,18 @@ def test_main_root_id_jsonschema_with_local_file(mocker):
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_root_id' / 'output.py').read_text()
         )
         httpx_get_mock.assert_not_called()
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -1146,7 +1205,8 @@ def test_main_root_id_jsonschema_with_remote_file(mocker):
         input_file = Path(output_dir, 'root_id.json')
         shutil.copy(JSON_SCHEMA_DATA_PATH / 'root_id.json', input_file)
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(input_file),
@@ -1154,9 +1214,9 @@ def test_main_root_id_jsonschema_with_remote_file(mocker):
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_root_id' / 'output.py').read_text()
@@ -1167,7 +1227,9 @@ def test_main_root_id_jsonschema_with_remote_file(mocker):
             ]
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -1177,7 +1239,8 @@ def test_main_root_id_jsonschema_self_refs_with_local_file(mocker):
     httpx_get_mock = mocker.patch('httpx.get', side_effect=[person_response])
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'root_id_self_ref.json'),
@@ -1185,9 +1248,9 @@ def test_main_root_id_jsonschema_self_refs_with_local_file(mocker):
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert output_file.read_text() == (
             EXPECTED_MAIN_PATH / 'main_root_id' / 'output.py'
         ).read_text().replace(
@@ -1195,7 +1258,9 @@ def test_main_root_id_jsonschema_self_refs_with_local_file(mocker):
         )
         httpx_get_mock.assert_not_called()
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -1207,7 +1272,8 @@ def test_main_root_id_jsonschema_self_refs_with_remote_file(mocker):
         input_file = Path(output_dir, 'root_id_self_ref.json')
         shutil.copy(JSON_SCHEMA_DATA_PATH / 'root_id_self_ref.json', input_file)
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(input_file),
@@ -1215,9 +1281,9 @@ def test_main_root_id_jsonschema_self_refs_with_remote_file(mocker):
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert output_file.read_text() == (
             EXPECTED_MAIN_PATH / 'main_root_id' / 'output.py'
         ).read_text().replace(
@@ -1229,7 +1295,9 @@ def test_main_root_id_jsonschema_self_refs_with_remote_file(mocker):
             ]
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -1243,7 +1311,8 @@ def test_main_root_id_jsonschema_with_absolute_remote_file(mocker):
         input_file = Path(output_dir, 'root_id_absolute_url.json')
         shutil.copy(JSON_SCHEMA_DATA_PATH / 'root_id_absolute_url.json', input_file)
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(input_file),
@@ -1251,9 +1320,9 @@ def test_main_root_id_jsonschema_with_absolute_remote_file(mocker):
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1266,14 +1335,17 @@ def test_main_root_id_jsonschema_with_absolute_remote_file(mocker):
             ]
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_id():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'id.json'),
@@ -1281,15 +1353,17 @@ def test_main_jsonschema_id():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_jsonschema_id' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -1297,15 +1371,16 @@ def test_main_jsonschema_id_as_stdin(monkeypatch):
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
         monkeypatch.setattr('sys.stdin', (JSON_SCHEMA_DATA_PATH / 'id.json').open())
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--output',
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1313,7 +1388,9 @@ def test_main_jsonschema_id_as_stdin(monkeypatch):
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 def test_main_jsonschema_ids(tmpdir_factory: TempdirFactory) -> None:
@@ -1323,7 +1400,8 @@ def test_main_jsonschema_ids(tmpdir_factory: TempdirFactory) -> None:
     output_path = output_directory / 'model'
 
     with freeze_time(TIMESTAMP):
-        main(
+        runner.invoke(
+            app,
             [
                 '--input',
                 str(input_filename),
@@ -1331,7 +1409,7 @@ def test_main_jsonschema_ids(tmpdir_factory: TempdirFactory) -> None:
                 str(output_path),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
     main_jsonschema_ids_dir = EXPECTED_MAIN_PATH / 'main_jsonschema_ids'
     for path in main_jsonschema_ids_dir.rglob('*.py'):
@@ -1348,14 +1426,15 @@ def test_main_use_standard_collections(tmpdir_factory: TempdirFactory) -> None:
     output_path = output_directory / 'model'
 
     with freeze_time(TIMESTAMP):
-        main(
+        runner.invoke(
+            app,
             [
                 '--input',
                 str(input_filename),
                 '--output',
                 str(output_path),
                 '--use-standard-collections',
-            ]
+            ],
         )
     main_use_standard_collections_dir = (
         EXPECTED_MAIN_PATH / 'main_use_standard_collections'
@@ -1374,14 +1453,15 @@ def test_main_use_generic_container_types(tmpdir_factory: TempdirFactory) -> Non
     output_path = output_directory / 'model'
 
     with freeze_time(TIMESTAMP):
-        main(
+        runner.invoke(
+            app,
             [
                 '--input',
                 str(input_filename),
                 '--output',
                 str(output_path),
                 '--use-generic-container-types',
-            ]
+            ],
         )
     main_use_generic_container_types_dir = (
         EXPECTED_MAIN_PATH / 'main_use_generic_container_types'
@@ -1402,7 +1482,8 @@ def test_main_use_generic_container_types_standard_collections(
     output_path = output_directory / 'model'
 
     with freeze_time(TIMESTAMP):
-        main(
+        runner.invoke(
+            app,
             [
                 '--input',
                 str(input_filename),
@@ -1410,7 +1491,7 @@ def test_main_use_generic_container_types_standard_collections(
                 str(output_path),
                 '--use-generic-container-types',
                 '--use-standard-collections',
-            ]
+            ],
         )
     main_use_generic_container_types_standard_collections_dir = (
         EXPECTED_MAIN_PATH / 'main_use_generic_container_types_standard_collections'
@@ -1425,17 +1506,18 @@ def test_main_use_generic_container_types_standard_collections(
 def test_main_use_generic_container_types_py36(capsys) -> None:
     input_filename = OPEN_API_DATA_PATH / 'modular.yaml'
 
-    return_code: Exit = main(
+    result = runner.invoke(
+        app,
         [
             '--input',
             str(input_filename),
             '--use-generic-container-types',
             '--target-python-version',
             '3.6',
-        ]
+        ],
     )
     captured = capsys.readouterr()
-    assert return_code == Exit.ERROR
+    assert result == Exit.ERROR
     assert (
         captured.err == '`--use-generic-container-types` can not be used with '
         '`--target-python_version` 3.6.\n '
@@ -1447,7 +1529,8 @@ def test_main_use_generic_container_types_py36(capsys) -> None:
 def test_main_external_definitions():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'external_definitions_root.json'),
@@ -1455,9 +1538,9 @@ def test_main_external_definitions():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1465,14 +1548,17 @@ def test_main_external_definitions():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_external_files_in_directory(tmpdir_factory: TempdirFactory) -> None:
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(
@@ -1484,9 +1570,9 @@ def test_main_external_files_in_directory(tmpdir_factory: TempdirFactory) -> Non
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1494,7 +1580,9 @@ def test_main_external_files_in_directory(tmpdir_factory: TempdirFactory) -> Non
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -1502,7 +1590,8 @@ def test_main_nested_directory(tmpdir_factory: TempdirFactory) -> None:
     output_directory = Path(tmpdir_factory.mktemp('output'))
 
     output_path = output_directory / 'model'
-    return_code: Exit = main(
+    result = runner.invoke(
+        app,
         [
             '--input',
             str(JSON_SCHEMA_DATA_PATH / 'external_files_in_directory'),
@@ -1510,9 +1599,9 @@ def test_main_nested_directory(tmpdir_factory: TempdirFactory) -> None:
             str(output_path),
             '--input-file-type',
             'jsonschema',
-        ]
+        ],
     )
-    assert return_code == Exit.OK
+    assert result.exit_code == 0
     main_nested_directory = EXPECTED_MAIN_PATH / 'main_nested_directory'
 
     for path in main_nested_directory.rglob('*.py'):
@@ -1526,7 +1615,8 @@ def test_main_nested_directory(tmpdir_factory: TempdirFactory) -> None:
 def test_main_circular_reference():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'circular_reference.json'),
@@ -1534,9 +1624,9 @@ def test_main_circular_reference():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1544,14 +1634,17 @@ def test_main_circular_reference():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_invalid_enum_name():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'invalid_enum_name.json'),
@@ -1559,22 +1652,25 @@ def test_main_invalid_enum_name():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_invalid_enum_name' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_json_reuse_model():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_DATA_PATH / 'duplicate_models.json'),
@@ -1583,22 +1679,25 @@ def test_main_json_reuse_model():
                 '--input-file-type',
                 'json',
                 '--reuse-model',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_json_reuse_model' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_json_reuse_enum():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'duplicate_enum.json'),
@@ -1607,22 +1706,25 @@ def test_main_json_reuse_enum():
                 '--input-file-type',
                 'jsonschema',
                 '--reuse-model',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_json_reuse_enum' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_openapi_datetime():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'datetime.yaml'),
@@ -1630,22 +1732,25 @@ def test_main_openapi_datetime():
                 str(output_file),
                 '--input-file-type',
                 'openapi',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_openapi_datetime' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_similar_nested_array():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'similar_nested_array.json'),
@@ -1653,9 +1758,9 @@ def test_main_similar_nested_array():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1663,14 +1768,17 @@ def test_main_similar_nested_array():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_space_and_special_characters_dict():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(PYTHON_DATA_PATH / 'space_and_special_characters_dict.py'),
@@ -1678,9 +1786,9 @@ def test_space_and_special_characters_dict():
                 str(output_file),
                 '--input-file-type',
                 'dict',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1688,14 +1796,17 @@ def test_space_and_special_characters_dict():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_csv_file():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(CSV_DATA_PATH / 'simple.csv'),
@@ -1703,15 +1814,17 @@ def test_csv_file():
                 str(output_file),
                 '--input-file-type',
                 'csv',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'csv_file_simple' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -1719,28 +1832,32 @@ def test_csv_stdin(monkeypatch):
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
         monkeypatch.setattr('sys.stdin', (CSV_DATA_PATH / 'simple.csv').open())
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--output',
                 str(output_file),
                 '--input-file-type',
                 'csv',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'csv_stdin_simple' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_models_not_found(capsys):
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'no_components.yaml'),
@@ -1748,10 +1865,10 @@ def test_main_models_not_found(capsys):
                 str(output_file),
                 '--input-file-type',
                 'openapi',
-            ]
+            ],
         )
         captured = capsys.readouterr()
-        assert return_code == Exit.ERROR
+        assert result == Exit.ERROR
         assert captured.err == 'Models not found in the input data\n'
 
 
@@ -1759,7 +1876,8 @@ def test_main_models_not_found(capsys):
 def test_main_json_pointer():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'json_pointer.json'),
@@ -1767,22 +1885,25 @@ def test_main_json_pointer():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_json_pointer' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_nested_json_pointer():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'nested_json_pointer.json'),
@@ -1790,9 +1911,9 @@ def test_main_nested_json_pointer():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1800,14 +1921,17 @@ def test_main_nested_json_pointer():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_multiple_files_json_pointer():
     with TemporaryDirectory() as output_dir:
         output_path: Path = Path(output_dir)
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'multiple_files_json_pointer'),
@@ -1815,9 +1939,9 @@ def test_main_jsonschema_multiple_files_json_pointer():
                 str(output_path),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         main_modular_dir = EXPECTED_MAIN_PATH / 'multiple_files_json_pointer'
         for path in main_modular_dir.rglob('*.py'):
             result = output_path.joinpath(
@@ -1826,7 +1950,9 @@ def test_main_jsonschema_multiple_files_json_pointer():
             assert result == path.read_text()
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @pytest.mark.skipif(
@@ -1836,7 +1962,8 @@ def test_main_jsonschema_multiple_files_json_pointer():
 def test_main_openapi_enum_models_as_literal_one():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'enum_models.yaml'),
@@ -1848,9 +1975,9 @@ def test_main_openapi_enum_models_as_literal_one():
                 'one',
                 '--target-python-version',
                 '3.8',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1858,7 +1985,9 @@ def test_main_openapi_enum_models_as_literal_one():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @pytest.mark.skipif(
@@ -1868,7 +1997,8 @@ def test_main_openapi_enum_models_as_literal_one():
 def test_main_openapi_enum_models_as_literal_all():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'enum_models.yaml'),
@@ -1880,9 +2010,9 @@ def test_main_openapi_enum_models_as_literal_all():
                 'all',
                 '--target-python-version',
                 '3.8',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1890,7 +2020,9 @@ def test_main_openapi_enum_models_as_literal_all():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @pytest.mark.skipif(
@@ -1900,7 +2032,8 @@ def test_main_openapi_enum_models_as_literal_all():
 def test_main_openapi_enum_models_as_literal_py37(capsys):
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'enum_models.yaml'),
@@ -1910,10 +2043,10 @@ def test_main_openapi_enum_models_as_literal_py37(capsys):
                 'openapi',
                 '--enum-field-as-literal',
                 'all',
-            ]
+            ],
         )
 
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1923,14 +2056,17 @@ def test_main_openapi_enum_models_as_literal_py37(capsys):
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_root_model_with_additional_properties():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(
@@ -1940,9 +2076,9 @@ def test_main_root_model_with_additional_properties():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1952,14 +2088,17 @@ def test_main_root_model_with_additional_properties():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_root_model_with_additional_properties_use_generic_container_types():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(
@@ -1970,9 +2109,9 @@ def test_main_root_model_with_additional_properties_use_generic_container_types(
                 '--input-file-type',
                 'jsonschema',
                 '--use-generic-container-types',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -1982,14 +2121,17 @@ def test_main_root_model_with_additional_properties_use_generic_container_types(
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_root_model_with_additional_properties_use_standard_collections():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(
@@ -2000,9 +2142,9 @@ def test_main_root_model_with_additional_properties_use_standard_collections():
                 '--input-file-type',
                 'jsonschema',
                 '--use-standard-collections',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -2012,14 +2154,17 @@ def test_main_root_model_with_additional_properties_use_standard_collections():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_root_model_with_additional_properties_literal():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(
@@ -2033,9 +2178,9 @@ def test_main_root_model_with_additional_properties_literal():
                 'all',
                 '--target-python-version',
                 '3.8',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -2045,14 +2190,17 @@ def test_main_root_model_with_additional_properties_literal():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_multiple_files_ref():
     with TemporaryDirectory() as output_dir:
         output_path: Path = Path(output_dir)
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'multiple_files_self_ref'),
@@ -2060,9 +2208,9 @@ def test_main_jsonschema_multiple_files_ref():
                 str(output_path),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         main_modular_dir = EXPECTED_MAIN_PATH / 'multiple_files_self_ref'
         for path in main_modular_dir.rglob('*.py'):
             result = output_path.joinpath(
@@ -2071,7 +2219,9 @@ def test_main_jsonschema_multiple_files_ref():
             assert result == path.read_text()
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -2079,7 +2229,8 @@ def test_main_jsonschema_multiple_files_ref_test_json():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
         with chdir(JSON_SCHEMA_DATA_PATH / 'multiple_files_self_ref'):
-            return_code: Exit = main(
+            result = runner.invoke(
+                app,
                 [
                     '--input',
                     'test.json',
@@ -2087,9 +2238,9 @@ def test_main_jsonschema_multiple_files_ref_test_json():
                     str(output_file),
                     '--input-file-type',
                     'jsonschema',
-                ]
+                ],
             )
-            assert return_code == Exit.OK
+            assert result.exit_code == 0
             assert (
                 output_file.read_text()
                 == (
@@ -2097,7 +2248,9 @@ def test_main_jsonschema_multiple_files_ref_test_json():
                 ).read_text()
             )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -2105,7 +2258,8 @@ def test_simple_json_snake_case_field():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
         with chdir(JSON_DATA_PATH / 'simple.json'):
-            return_code: Exit = main(
+            result = runner.invoke(
+                app,
                 [
                     '--input',
                     'simple.json',
@@ -2114,9 +2268,9 @@ def test_simple_json_snake_case_field():
                     '--input-file-type',
                     'json',
                     '--snake-case-field',
-                ]
+                ],
             )
-            assert return_code == Exit.OK
+            assert result.exit_code == 0
             assert (
                 output_file.read_text()
                 == (
@@ -2124,7 +2278,9 @@ def test_simple_json_snake_case_field():
                 ).read_text()
             )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -2132,7 +2288,8 @@ def test_main_all_of_ref():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
         with chdir(JSON_SCHEMA_DATA_PATH / 'all_of_ref'):
-            return_code: Exit = main(
+            result = runner.invoke(
+                app,
                 [
                     '--input',
                     'test.json',
@@ -2142,15 +2299,17 @@ def test_main_all_of_ref():
                     'jsonschema',
                     '--class-name',
                     'Test',
-                ]
+                ],
             )
-            assert return_code == Exit.OK
+            assert result.exit_code == 0
             assert (
                 output_file.read_text()
                 == (EXPECTED_MAIN_PATH / 'all_of_ref' / 'output.py').read_text()
             )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -2158,7 +2317,8 @@ def test_main_all_of_with_object():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
         with chdir(JSON_SCHEMA_DATA_PATH):
-            return_code: Exit = main(
+            result = runner.invoke(
+                app,
                 [
                     '--input',
                     'all_of_with_object.json',
@@ -2166,15 +2326,17 @@ def test_main_all_of_with_object():
                     str(output_file),
                     '--input-file-type',
                     'jsonschema',
-                ]
+                ],
             )
-            assert return_code == Exit.OK
+            assert result.exit_code == 0
             assert (
                 output_file.read_text()
                 == (EXPECTED_MAIN_PATH / 'all_of_with_object' / 'output.py').read_text()
             )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -2182,7 +2344,8 @@ def test_main_combined_array():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
         with chdir(JSON_SCHEMA_DATA_PATH):
-            return_code: Exit = main(
+            result = runner.invoke(
+                app,
                 [
                     '--input',
                     'combined_array.json',
@@ -2190,22 +2353,25 @@ def test_main_combined_array():
                     str(output_file),
                     '--input-file-type',
                     'jsonschema',
-                ]
+                ],
             )
-            assert return_code == Exit.OK
+            assert result.exit_code == 0
             assert (
                 output_file.read_text()
                 == (EXPECTED_MAIN_PATH / 'combined_array' / 'output.py').read_text()
             )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_openapi_nullable():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'nullable.yaml'),
@@ -2213,22 +2379,25 @@ def test_main_openapi_nullable():
                 str(output_file),
                 '--input-file-type',
                 'openapi',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_openapi_nullable' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_openapi_nullable_strict_nullable():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'nullable.yaml'),
@@ -2237,9 +2406,9 @@ def test_main_openapi_nullable_strict_nullable():
                 '--input-file-type',
                 'openapi',
                 '--strict-nullable',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -2249,14 +2418,17 @@ def test_main_openapi_nullable_strict_nullable():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_openapi_pattern():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'pattern.yaml'),
@@ -2264,21 +2436,24 @@ def test_main_openapi_pattern():
                 str(output_file),
                 '--input-file-type',
                 'openapi',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert output_file.read_text() == (
             EXPECTED_MAIN_PATH / 'main_pattern' / 'output.py'
         ).read_text().replace('pattern.json', 'pattern.yaml')
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_pattern():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'pattern.json'),
@@ -2286,15 +2461,17 @@ def test_main_jsonschema_pattern():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_pattern' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -2444,7 +2621,8 @@ def test_main_http_jsonschema(mocker):
     )
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--url',
                 'https://example.com/external_files_in_directory/person.json',
@@ -2452,9 +2630,9 @@ def test_main_http_jsonschema(mocker):
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert output_file.read_text() == (
             EXPECTED_MAIN_PATH / 'main_external_files_in_directory' / 'output.py'
         ).read_text().replace(
@@ -2506,7 +2684,9 @@ def test_main_http_jsonschema(mocker):
             ]
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -2563,8 +2743,8 @@ def test_main_http_jsonschema_with_http_headers_and_ignore_tls(
         if http_ignore_tls:
             args.append('--http-ignore-tls')
 
-        return_code: Exit = main(args)
-        assert return_code == Exit.OK
+        result = runner.invoke(app, args)
+        assert result.exit_code == 0
         assert output_file.read_text() == (
             EXPECTED_MAIN_PATH / 'main_external_files_in_directory' / 'output.py'
         ).read_text().replace(
@@ -2616,7 +2796,9 @@ def test_main_http_jsonschema_with_http_headers_and_ignore_tls(
             ]
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -2635,7 +2817,8 @@ def test_main_http_openapi(mocker):
     )
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--url',
                 'https://example.com/refs.yaml',
@@ -2643,9 +2826,9 @@ def test_main_http_openapi(mocker):
                 str(output_file),
                 '--input-file-type',
                 'openapi',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_openapi_http_refs' / 'output.py').read_text()
@@ -2661,7 +2844,9 @@ def test_main_http_openapi(mocker):
             ]
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -2679,7 +2864,8 @@ def test_main_http_json(mocker):
     )
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--url',
                 'https://example.com/pet.json',
@@ -2687,9 +2873,9 @@ def test_main_http_json(mocker):
                 str(output_file),
                 '--input-file-type',
                 'json',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert output_file.read_text() == (
             EXPECTED_MAIN_PATH / 'main_json' / 'output.py'
         ).read_text().replace(
@@ -2706,14 +2892,17 @@ def test_main_http_json(mocker):
             ]
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_self_reference():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'self_reference.json'),
@@ -2721,22 +2910,25 @@ def test_main_self_reference():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_self_reference' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_disable_appending_item_suffix():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api_constrained.yaml'),
@@ -2744,9 +2936,9 @@ def test_main_disable_appending_item_suffix():
                 str(output_file),
                 '--field-constraints',
                 '--disable-appending-item-suffix',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -2755,14 +2947,17 @@ def test_main_disable_appending_item_suffix():
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_strict_types():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'strict_types.json'),
@@ -2770,22 +2965,25 @@ def test_main_strict_types():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_strict_types' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_strict_types_all():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'strict_types.json'),
@@ -2799,22 +2997,25 @@ def test_main_strict_types_all():
                 'int',
                 'float',
                 'bool',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_strict_types_all' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_strict_types_all_with_field_constraints():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'strict_types.json'),
@@ -2829,10 +3030,10 @@ def test_main_strict_types_all_with_field_constraints():
                 'float',
                 'bool',
                 '--field-constraints',
-            ]
+            ],
         )
 
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -2842,14 +3043,17 @@ def test_main_strict_types_all_with_field_constraints():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_special_enum():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'special_enum.json'),
@@ -2857,9 +3061,9 @@ def test_main_jsonschema_special_enum():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -2867,14 +3071,17 @@ def test_main_jsonschema_special_enum():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_special_enum_empty_enum_field_name():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'special_enum.json'),
@@ -2884,9 +3091,9 @@ def test_main_jsonschema_special_enum_empty_enum_field_name():
                 'jsonschema',
                 '--empty-enum-field-name',
                 'empty',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -2896,14 +3103,17 @@ def test_main_jsonschema_special_enum_empty_enum_field_name():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_special_field_name():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'special_field_name.json'),
@@ -2911,9 +3121,9 @@ def test_main_jsonschema_special_field_name():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -2921,14 +3131,17 @@ def test_main_jsonschema_special_field_name():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_complex_one_of():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'complex_one_of.json'),
@@ -2936,9 +3149,9 @@ def test_main_jsonschema_complex_one_of():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -2946,14 +3159,17 @@ def test_main_jsonschema_complex_one_of():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_complex_any_of():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'complex_any_of.json'),
@@ -2961,9 +3177,9 @@ def test_main_jsonschema_complex_any_of():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -2971,14 +3187,17 @@ def test_main_jsonschema_complex_any_of():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_combine_one_of_object():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'combine_one_of_object.json'),
@@ -2986,9 +3205,9 @@ def test_main_jsonschema_combine_one_of_object():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -2998,14 +3217,17 @@ def test_main_jsonschema_combine_one_of_object():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_combine_any_of_object():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'combine_any_of_object.json'),
@@ -3013,9 +3235,9 @@ def test_main_jsonschema_combine_any_of_object():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3025,14 +3247,17 @@ def test_main_jsonschema_combine_any_of_object():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_field_include_all_keys():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'person.json'),
@@ -3041,22 +3266,25 @@ def test_main_jsonschema_field_include_all_keys():
                 '--input-file-type',
                 'jsonschema',
                 '--field-include-all-keys',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_jsonschema' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_field_extras_field_include_all_keys():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'extras.json'),
@@ -3065,9 +3293,9 @@ def test_main_jsonschema_field_extras_field_include_all_keys():
                 '--input-file-type',
                 'jsonschema',
                 '--field-include-all-keys',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3077,14 +3305,17 @@ def test_main_jsonschema_field_extras_field_include_all_keys():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_field_extras_field_extra_keys():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'extras.json'),
@@ -3095,9 +3326,9 @@ def test_main_jsonschema_field_extras_field_extra_keys():
                 '--field-extra-keys',
                 'key2',
                 'invalid-key-1',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3107,14 +3338,17 @@ def test_main_jsonschema_field_extras_field_extra_keys():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_field_extras():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'extras.json'),
@@ -3122,9 +3356,9 @@ def test_main_jsonschema_field_extras():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3132,7 +3366,9 @@ def test_main_jsonschema_field_extras():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @pytest.mark.skipif(
@@ -3143,7 +3379,8 @@ def test_main_jsonschema_field_extras():
 def test_main_jsonschema_custom_type_path():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'custom_type_path.json'),
@@ -3151,9 +3388,9 @@ def test_main_jsonschema_custom_type_path():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3161,14 +3398,17 @@ def test_main_jsonschema_custom_type_path():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_jsonschema_unsupported_parent_class():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'all_of_unsupported_parent_class.json'),
@@ -3176,9 +3416,9 @@ def test_main_jsonschema_unsupported_parent_class():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3188,14 +3428,17 @@ def test_main_jsonschema_unsupported_parent_class():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_openapi_body_and_parameters():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'body_and_parameters.yaml'),
@@ -3206,9 +3449,9 @@ def test_main_openapi_body_and_parameters():
                 '--openapi-scopes',
                 'paths',
                 'schemas',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3216,7 +3459,9 @@ def test_main_openapi_body_and_parameters():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
@@ -3228,7 +3473,8 @@ def test_main_openapi_body_and_parameters_remote_ref(mocker):
 
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(input_path),
@@ -3239,9 +3485,9 @@ def test_main_openapi_body_and_parameters_remote_ref(mocker):
                 '--openapi-scopes',
                 'paths',
                 'schemas',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3256,14 +3502,17 @@ def test_main_openapi_body_and_parameters_remote_ref(mocker):
             ]
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_openapi_body_and_parameters_only_paths():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'body_and_parameters.yaml'),
@@ -3273,9 +3522,9 @@ def test_main_openapi_body_and_parameters_only_paths():
                 'openapi',
                 '--openapi-scopes',
                 'paths',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3285,14 +3534,17 @@ def test_main_openapi_body_and_parameters_only_paths():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_openapi_body_and_parameters_only_schemas():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'body_and_parameters.yaml'),
@@ -3302,9 +3554,9 @@ def test_main_openapi_body_and_parameters_only_schemas():
                 'openapi',
                 '--openapi-scopes',
                 'schemas',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3314,14 +3566,17 @@ def test_main_openapi_body_and_parameters_only_schemas():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_openapi_content_in_parameters():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'content_in_parameters.yaml'),
@@ -3329,9 +3584,9 @@ def test_main_openapi_content_in_parameters():
                 str(output_file),
                 '--input-file-type',
                 'openapi',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3339,14 +3594,17 @@ def test_main_openapi_content_in_parameters():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_openapi_oas_response_reference():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'oas_response_reference.yaml'),
@@ -3357,9 +3615,9 @@ def test_main_openapi_oas_response_reference():
                 '--openapi-scopes',
                 'paths',
                 'schemas',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3367,14 +3625,17 @@ def test_main_openapi_oas_response_reference():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_long_description():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'long_description.json'),
@@ -3382,22 +3643,25 @@ def test_long_description():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_long_description' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_long_description_wrap_string_literal():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'long_description.json'),
@@ -3406,9 +3670,9 @@ def test_long_description_wrap_string_literal():
                 '--input-file-type',
                 'jsonschema',
                 '--wrap-string-literal',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3418,12 +3682,14 @@ def test_long_description_wrap_string_literal():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 def test_version(capsys):
     with pytest.raises(SystemExit) as e:
-        main(['--version'])
+        runner.invoke(app, ['--version'])
     assert e.value.code == Exit.OK
     captured = capsys.readouterr()
     assert captured.out == '0.0.0\n'
@@ -3434,7 +3700,8 @@ def test_version(capsys):
 def test_main_openapi_json_pointer():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'json_pointer.yaml'),
@@ -3442,9 +3709,9 @@ def test_main_openapi_json_pointer():
                 str(output_file),
                 '--input-file-type',
                 'openapi',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3452,14 +3719,17 @@ def test_main_openapi_json_pointer():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_jsonschema_pattern_properties():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'pattern_properties.json'),
@@ -3467,9 +3737,9 @@ def test_jsonschema_pattern_properties():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3477,14 +3747,17 @@ def test_jsonschema_pattern_properties():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_jsonschema_pattern_properties_field_constraints():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'pattern_properties.json'),
@@ -3493,9 +3766,9 @@ def test_jsonschema_pattern_properties_field_constraints():
                 '--input-file-type',
                 'jsonschema',
                 '--field-constraints',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3505,14 +3778,17 @@ def test_jsonschema_pattern_properties_field_constraints():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_jsonschema_titles():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'titles.json'),
@@ -3520,22 +3796,25 @@ def test_jsonschema_titles():
                 str(output_file),
                 '--input-file-type',
                 'jsonschema',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (EXPECTED_MAIN_PATH / 'main_jsonschema_titles' / 'output.py').read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_jsonschema_titles_use_title_as_name():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'titles.json'),
@@ -3544,9 +3823,9 @@ def test_jsonschema_titles_use_title_as_name():
                 '--input-file-type',
                 'jsonschema',
                 '--use-title-as-name',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3556,14 +3835,17 @@ def test_jsonschema_titles_use_title_as_name():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_jsonschema_without_titles_use_title_as_name():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(JSON_SCHEMA_DATA_PATH / 'without_titles.json'),
@@ -3572,9 +3854,9 @@ def test_jsonschema_without_titles_use_title_as_name():
                 '--input-file-type',
                 'jsonschema',
                 '--use-title-as-name',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3584,14 +3866,17 @@ def test_jsonschema_without_titles_use_title_as_name():
             ).read_text()
         )
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )
 
 
 @freeze_time('2019-07-26')
 def test_main_use_annotated_with_field_constraints():
     with TemporaryDirectory() as output_dir:
         output_file: Path = Path(output_dir) / 'output.py'
-        return_code: Exit = main(
+        result = runner.invoke(
+            app,
             [
                 '--input',
                 str(OPEN_API_DATA_PATH / 'api_constrained.yaml'),
@@ -3599,9 +3884,9 @@ def test_main_use_annotated_with_field_constraints():
                 str(output_file),
                 # '--field-constraints',
                 '--use-annotated',
-            ]
+            ],
         )
-        assert return_code == Exit.OK
+        assert result.exit_code == 0
         assert (
             output_file.read_text()
             == (
@@ -3612,4 +3897,6 @@ def test_main_use_annotated_with_field_constraints():
         )
 
     with pytest.raises(SystemExit):
-        main()
+        runner.invoke(
+            app,
+        )

@@ -1179,6 +1179,8 @@ class JsonSchemaParser(Parser):
                 source.path.parent
             ), self.model_resolver.current_root_context(path_parts):
                 self.raw_obj = load_yaml(source.text)
+                if self.raw_obj is None:
+                    raise Exception(f"Could not load {source.text[:5]}… as YAML")
                 if self.custom_class_name_generator:
                     obj_name = self.raw_obj.get('title', 'Model')
                 else:

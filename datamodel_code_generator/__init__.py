@@ -1,4 +1,5 @@
 import contextlib
+import logging
 import os
 from datetime import datetime, timezone
 from enum import Enum
@@ -76,6 +77,9 @@ pysnooper.tracer.DISABLED = True
 
 DEFAULT_BASE_CLASS: str = 'pydantic.BaseModel'
 
+__LOGGER__ = logging.getLogger(__name__)
+
+
 SafeLoader.yaml_constructors[
     'tag:yaml.org,2002:timestamp'
 ] = SafeLoader.yaml_constructors['tag:yaml.org,2002:str']
@@ -144,6 +148,9 @@ def chdir(path: Optional[Path]) -> Iterator[None]:
 
 
 def is_openapi(text: str) -> bool:
+    data = load_yaml(text)
+    if data is None:
+        return False
     return 'openapi' in load_yaml(text)
 
 
@@ -253,7 +260,7 @@ def generate(
 
     if isinstance(input_, Path) and not input_.is_absolute():
         input_ = input_.expanduser().resolve()
-    if input_file_type == InputFileType.Auto:
+    if input_file_type is InputFileType.Auto:
         try:
             input_text_ = (
                 get_first_file(input_).read_text(encoding=encoding)
@@ -265,11 +272,12 @@ def generate(
                 if is_openapi(input_text_)  # type: ignore
                 else InputFileType.JsonSchema
             )
-        except:
-            raise Error('Invalid file format')
+        except Exception as e:
+            __LOGGER__.exception('Invalid file format for input')
+            raise Error('Invalid file format') from e
 
     kwargs: Dict[str, Any] = {}
-    if input_file_type == InputFileType.OpenAPI:
+    if input_file_type is InputFileType.OpenAPI:
         from datamodel_code_generator.parser.openapi import OpenAPIParser
 
         parser_class: Type[Parser] = OpenAPIParser
@@ -284,7 +292,7 @@ def generate(
                 if isinstance(input_, Path) and input_.is_dir():  # pragma: no cover
                     raise Error(f'Input must be a file for {input_file_type}')
                 obj: Dict[Any, Any]
-                if input_file_type == InputFileType.CSV:
+                if input_file_type is InputFileType.CSV:
                     import csv
 
                     def get_header_and_first_line(csv_file: IO[str]) -> Dict[str, Any]:
@@ -304,7 +312,8 @@ def generate(
                         if isinstance(input_, Path)
                         else input_text
                     )
-            except:
+            except Exception as e:
+                __LOGGER__.exception('Invalid file format')
                 raise Error('Invalid file format')
             import json
 
